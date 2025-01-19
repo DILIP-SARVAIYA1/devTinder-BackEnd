@@ -31,6 +31,24 @@ app.get("/feed", async (req, res) => {
   }
 });
 
+app.delete("/user/:id", async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    res.send(user);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+app.patch("/user/:id", async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.id, req.body);
+    res.send(user);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
 connectDB()
   .then(() => {
     console.log("connected to database");
