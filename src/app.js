@@ -4,7 +4,10 @@ const app = express();
 const User = require("./models/User");
 const { validateSignUpData } = require("./helpers/validation");
 const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
 app.use(express.json());
+app.use(cookieParser());
 
 app.post("/signup", async (req, res) => {
   try {
@@ -30,16 +33,28 @@ app.post("/login", async (req, res) => {
     if (!isMatch) {
       return res.status(401).send("Invalid email or password");
     }
+    const token = jwt.sign({ _id: user._id }, "devtinder");
+    res.cookie("token", token);
     res.status(200).send("user logged in");
   } catch (error) {
     res.status(500).send(error.message);
   }
 });
-app.get("/users", async (req, res) => {
+app.get("/profile/view", async (req, res) => {
   try {
-    const users = await User.find({ email: req.body.email });
-    res.status(200).send(users);
+    const token = req.cookies.token;
+    if (!token) {
+      return res.status(401).send("Unauthorized access, Please log in!");
+    }
+    const decoded = jwt.verify(token, "devtinder");
+    console.log(decoded);
+
+    const user = await User.find({ _id: decoded._id });
+    res.status(200).send(user);
   } catch (error) {
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).send("Invalid token, please log in again");
+    }
     res.status(500).send(error.message);
   }
 });
