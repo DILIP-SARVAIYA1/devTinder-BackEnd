@@ -1,125 +1,31 @@
 const express = require("express");
 const connectDB = require("./config/database");
 const app = express();
-const User = require("./models/User");
-const { validateSignUpData } = require("./helpers/validation");
-const bcrypt = require("bcrypt");
 const cookieParser = require("cookie-parser");
-const jwt = require("jsonwebtoken");
+const profileRoutes = require("./routes/profileRoutes");
+const authRoutes = require("./routes/authRoutes");
+const connectionReqRoutes = require("./routes/connectionReqRoutes");
+
 app.use(express.json());
 app.use(cookieParser());
 
-app.post("/signup", async (req, res) => {
-  try {
-    validateSignUpData(req);
-    const hashedPassword = await bcrypt.hash(req.body.password, 13);
-    const user = new User(req.body);
-    console.log(user);
+app.use("/", profileRoutes);
+app.use("/", authRoutes);
+app.use("/", connectionReqRoutes);
 
-    user.password = hashedPassword;
-    await user.save();
-    res.status(201).send("user created");
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-app.post("/login", async (req, res) => {
-  try {
-    const user = await User.findOne({ email: req.body.email });
-    if (!user) {
-      return res.status(401).send("Invalid email or password");
-    }
-    const isMatch = await bcrypt.compare(req.body.password, user.password);
-    if (!isMatch) {
-      return res.status(401).send("Invalid email or password");
-    }
-    const token = jwt.sign({ _id: user._id }, "devtinder");
-    res.cookie("token", token);
-    res.status(200).send("user logged in");
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-app.get("/profile/view", async (req, res) => {
-  try {
-    const token = req.cookies.token;
-    if (!token) {
-      return res.status(401).send("Unauthorized access, Please log in!");
-    }
-    const decoded = jwt.verify(token, "devtinder");
-    console.log(decoded);
+const PORT = 7777;
 
-    const user = await User.find({ _id: decoded._id });
-    res.status(200).send(user);
-  } catch (error) {
-    if (error.name === "JsonWebTokenError") {
-      return res.status(401).send("Invalid token, please log in again");
-    }
-    res.status(500).send(error.message);
-  }
-});
-app.get("/feed", async (req, res) => {
+const connectWithRetry = async () => {
   try {
-    const users = await User.find({});
-    res.status(200).send(users);
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-
-app.delete("/user/:id", async (req, res) => {
-  try {
-    const id = req.params.id;
-    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).send("Invalid user ID format");
-    }
-    const user = await User.findByIdAndDelete(id);
-    if (!user) {
-      return res.status(404).send("User not found");
-    }
-    res.status(200).send("User deleted");
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-
-app.patch("/user/:id", async (req, res) => {
-  try {
-    const data = req.body;
-    const ALLOWED_UPDATES = [
-      "firstName",
-      "lastName",
-      "password",
-      "profilePic",
-      "about",
-      "skills",
-    ];
-    const isValidOperation = Object.keys(data).every((key) =>
-      ALLOWED_UPDATES.includes(key)
-    );
-    if (!isValidOperation) {
-      return res.status(400).send({ error: "Invalid updates!" });
-    }
-    if (data.skills.length > 5) {
-      return res.status(400).send({ error: "skills cannot be more than 5" });
-    }
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
-    res.status(200).send(user);
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-
-connectDB()
-  .then(() => {
+    await connectDB();
     console.log("connected to database");
-    app.listen(7777, () => {
-      console.log("server is running on port 7777");
+    app.listen(PORT, () => {
+      console.log(`server is running on port ${PORT}`);
     });
-  })
-  .catch((err) => {
-    console.error(err + "could not connect to database");
-  });
+  } catch (err) {
+    console.error(err + " could not connect to database, retrying...");
+    setTimeout(connectWithRetry, 5000); // Retry after 5 seconds
+  }
+};
+
+connectWithRetry();

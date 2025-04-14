@@ -23,6 +23,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Email is required"],
       unique: [true, "Email already exists"],
+      index: true, // Add index
       minLength: [6, "Email must be at least 6 characters"],
       maxLength: [50, "Email must be at most 50 characters"],
       lowercase: true,
@@ -50,40 +51,87 @@ const userSchema = new mongoose.Schema(
       required: [true, "Gender is required"],
       enum: {
         values: ["male", "female", "transgender"],
-        message: "Gender must be male, female, or transgender",
+        message:
+          "Gender must be one of the following: male, female, or transgender",
       },
     },
     age: {
       type: Number,
       required: [true, "Age is required"],
+      index: true, // Add index
       min: [18, "Age must be at least 18"],
       max: [130, "Age must be at most 130"],
     },
     profilePic: {
       type: String,
-      default:
-        "https://t4.ftcdn.net/jpg/00/64/67/27/360_F_64672736_U5kpdGs9keUll8CRQ3p3YaEv2M6qkVY5.jpg",
+      default: function () {
+        if (this.gender === "male") {
+          return "https://example.com/default-male.jpg";
+        } else if (this.gender === "female") {
+          return "https://example.com/default-female.jpg";
+        } else {
+          return "https://example.com/default-transgender.jpg";
+        }
+      },
       validate: {
         validator(value) {
-          if (!validator.isURL(value)) {
-            throw new Error("Invalid Profile Photo URL");
-          }
+          return validator.isURL(value);
         },
         message: "Invalid Profile Photo URL",
       },
     },
     about: {
       type: String,
-      default: "I am a developer",
+      default: function () {
+        return `I am ${this.firstName}, a developer`;
+      },
       minLength: [3, "About must be at least 3 characters"],
       maxLength: [200, "About must be at most 200 characters"],
     },
     skills: {
       type: [String],
       default: [],
+      validate: [
+        {
+          validator: function (value) {
+            return value.length <= 5;
+          },
+          message: "Skills cannot exceed 5 items",
+        },
+        {
+          validator: function (value) {
+            return value.every(
+              (skill) =>
+                typeof skill === "string" &&
+                skill.trim().length > 0 &&
+                skill.length <= 50
+            );
+          },
+          message:
+            "Each skill must be a non-empty string with a maximum length of 50 characters",
+        },
+      ],
     },
   },
   { timestamps: true }
 );
+
+userSchema.virtual("fullName").get(function () {
+  return `${this.firstName} ${this.lastName}`;
+});
+
+userSchema.pre("save", async function (next) {
+  if (this.isModified("password")) {
+    const bcrypt = require("bcrypt");
+    this.password = await bcrypt.hash(this.password, 10);
+  }
+  next();
+});
+
+userSchema.methods.toJSON = function () {
+  const user = this.toObject();
+  delete user.password;
+  return user;
+};
 
 module.exports = mongoose.model("User", userSchema);
