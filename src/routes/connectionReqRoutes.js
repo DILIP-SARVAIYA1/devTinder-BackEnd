@@ -94,4 +94,66 @@ connectionReqRoutes.post(
   }
 );
 
+connectionReqRoutes.post(
+  "/connectionRequests/review/:status/:id",
+  userAuth,
+  async (req, res) => {
+    try {
+      const requestId = req.params.id;
+      const toUserId = req.user._id.toString();
+      const status = req.params.status?.toLowerCase();
+
+      // Validate status
+      const ALLOWED_UPDATES = ["accepted", "rejected"];
+      if (!status || !ALLOWED_UPDATES.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid status. Allowed values: accepted, rejected",
+        });
+      }
+
+      // Validate request ID
+      if (!validator.isMongoId(requestId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid request ID format",
+        });
+      }
+
+      // Fetch the connection request and validate its existence
+      const request = await ConnectionRequest.findById(requestId);
+      if (!request) {
+        return res.status(404).json({
+          success: false,
+          message: "The connection request does not exist",
+        });
+      }
+
+      // Check if the request belongs to the logged-in user
+      if (request.toUserId.toString() !== toUserId) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not authorized to review this connection request",
+        });
+      }
+
+      // Update the connection request status
+      request.status = status;
+      await request.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Connection request status updated successfully",
+        data: request,
+      });
+    } catch (error) {
+      console.error("Error in /connectionRequests/review:", error);
+      res.status(500).json({
+        success: false,
+        message: "An unexpected error occurred while processing the request",
+      });
+    }
+  }
+);
+
 module.exports = connectionReqRoutes;
