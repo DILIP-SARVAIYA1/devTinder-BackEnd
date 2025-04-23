@@ -1,7 +1,7 @@
 const express = require("express");
 const profileRoutes = express.Router();
 const User = require("../models/User");
-const { userAuth } = require("../middlewares/auth");
+const { userAuth } = require("../middlewares/userAuth");
 const validator = require("validator");
 const validateObjectId = require("../middlewares/validateObjectId");
 
