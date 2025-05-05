@@ -5,6 +5,7 @@ const cookieParser = require("cookie-parser");
 const profileRoutes = require("./routes/profileRoutes");
 const authRoutes = require("./routes/authRoutes");
 const connectionReqRoutes = require("./routes/connectionReqRoutes");
+const usersReqRoutes = require("./routes/usersReqRoutes");
 
 app.use(express.json());
 app.use(cookieParser());
@@ -12,6 +13,7 @@ app.use(cookieParser());
 app.use("/", profileRoutes);
 app.use("/", authRoutes);
 app.use("/", connectionReqRoutes);
+app.use("/", usersReqRoutes);
 
 const PORT = 7777;
 
