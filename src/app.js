@@ -15,7 +15,7 @@ app.use("/", authRoutes);
 app.use("/", connectionReqRoutes);
 app.use("/", usersReqRoutes);
 
-const PORT = 7777;
+const PORT = 1111;
 
 const connectWithRetry = async () => {
   try {
