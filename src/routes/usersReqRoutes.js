@@ -3,6 +3,7 @@ const usersReqRouter = express.Router();
 const ConnectionRequest = require("../models/ConnectionRequest");
 const { userAuth } = require("../middlewares/userAuth");
 const paginationMiddleware = require("../middlewares/paginationMiddleware");
+const User = require("../models/User");
 
 // Get received connection requests
 usersReqRouter.get(
@@ -100,6 +101,71 @@ usersReqRouter.get(
       res.status(500).json({
         success: false,
         message: "An unexpected error occurred while retrieving connections",
+      });
+    }
+  }
+);
+
+// Get user feed
+usersReqRouter.get(
+  "/usersFeed",
+  userAuth,
+  paginationMiddleware,
+  async (req, res) => {
+    try {
+      const loggedInUserId = req.user._id;
+
+      // Fetch connected user IDs
+      const connectedUserIds = new Set([
+        ...(await ConnectionRequest.distinct("toUserId", {
+          fromUserId: loggedInUserId,
+        })),
+        ...(await ConnectionRequest.distinct("fromUserId", {
+          toUserId: loggedInUserId,
+        })),
+      ]);
+
+      // Add the logged-in user to the set to exclude them from the feed
+      connectedUserIds.add(loggedInUserId.toString());
+      // Build user filter
+      const usersFilter = {
+        _id: { $nin: Array.from(connectedUserIds) },
+      };
+      // Add gender filter if provided
+      if (req.query.gender) {
+        usersFilter.gender = req.query.gender;
+      }
+
+      // Fetch users for the feed
+      const usersFeed = await User.find(usersFilter)
+        .select("firstName lastName profilePic skills aboutMe")
+        .sort({ createdAt: -1 })
+        .skip(req.pagination.skip)
+        .limit(req.pagination.limit);
+
+      // Total count of users in the feed
+      const totalFeedUsers = await User.countDocuments({
+        _id: { $nin: Array.from(connectedUserIds) },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: usersFeed.length
+          ? "User feed retrieved successfully"
+          : "No users available in the feed",
+        data: usersFeed,
+        total: totalFeedUsers,
+        page,
+        limit,
+      });
+    } catch (error) {
+      console.error("Error in /usersFeed:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({
+        success: false,
+        message: "An unexpected error occurred while retrieving user feed",
       });
     }
   }
