@@ -39,12 +39,18 @@ authRoutes.post("/login", async (req, res) => {
       expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       sameSite: "strict",
     });
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: `${user.firstName} ${user.lastName} logged in`,
-      });
+    res.status(200).json({
+      success: true,
+      message: `${user.firstName} ${user.lastName} logged in`,
+      userData: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        profilePic: user.profilePic,
+        about: user.about,
+        skills: user.skills,
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
