@@ -7,7 +7,7 @@ const User = require("../models/User");
 const sendResponse = require("../helpers/response");
 
 // Signup
-authRoutes.post("/signup", async (req, res) => {
+authRoutes.post("/signup", async (req, res, next) => {
   try {
     validateSignUpData(req);
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
@@ -22,16 +22,12 @@ authRoutes.post("/signup", async (req, res) => {
       status: 201,
     });
   } catch (error) {
-    sendResponse(res, {
-      success: false,
-      message: error.message,
-      status: 500,
-    });
+    next(error);
   }
 });
 
 // Login
-authRoutes.post("/login", async (req, res) => {
+authRoutes.post("/login", async (req, res, next) => {
   try {
     const user = await User.findOne({ email: req.body.email });
     if (!user) {
@@ -72,11 +68,7 @@ authRoutes.post("/login", async (req, res) => {
       },
     });
   } catch (error) {
-    sendResponse(res, {
-      success: false,
-      message: error.message,
-      status: 500,
-    });
+    next(error);
   }
 });
 

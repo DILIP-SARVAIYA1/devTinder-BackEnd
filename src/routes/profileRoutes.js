@@ -140,7 +140,7 @@ profileRoutes.patch(
   "/profile/update/:id",
   userAuth,
   validateObjectId,
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const data = req.body;
       const ALLOWED_UPDATES = [
@@ -237,12 +237,7 @@ profileRoutes.patch(
         data: user,
       });
     } catch (error) {
-      console.error("Error in /profile/update/:id:", error);
-      sendResponse(res, {
-        success: false,
-        message: "An unexpected error occurred while updating the profile",
-        status: 500,
-      });
+      next(error);
     }
   }
 );

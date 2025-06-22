@@ -9,7 +9,7 @@ const connectionReqRoutes = express.Router();
 connectionReqRoutes.post(
   "/connectionRequests/:status/:id",
   userAuth,
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const fromUserId = req.user._id;
       const toUserId = req.params.id;
@@ -69,12 +69,7 @@ connectionReqRoutes.post(
         data: connectionRequest,
       });
     } catch (error) {
-      console.error("Error in /connectionRequests:", error);
-      sendResponse(res, {
-        success: false,
-        message: "An unexpected error occurred while processing the request",
-        status: 500,
-      });
+      next(error);
     }
   }
 );
@@ -82,7 +77,7 @@ connectionReqRoutes.post(
 connectionReqRoutes.post(
   "/connectionRequests/review/:status/:id",
   userAuth,
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const requestId = req.params.id;
       const toUserId = req.user._id.toString();
@@ -125,12 +120,7 @@ connectionReqRoutes.post(
         data: request,
       });
     } catch (error) {
-      console.error("Error in /connectionRequests/review:", error);
-      sendResponse(res, {
-        success: false,
-        message: "An unexpected error occurred while processing the request",
-        status: 500,
-      });
+      next(error);
     }
   }
 );

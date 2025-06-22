@@ -11,7 +11,7 @@ usersReqRouter.get(
   "/usersRequest/received",
   userAuth,
   paginationMiddleware,
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const loggedInUserId = req.user._id;
       const { page, limit, skip } = req.pagination;
@@ -40,13 +40,7 @@ usersReqRouter.get(
         pagination: { total: totalRequests, page, limit },
       });
     } catch (error) {
-      console.error("Error in /usersRequest/received:", error);
-      sendResponse(res, {
-        success: false,
-        message:
-          "An unexpected error occurred while retrieving connection requests",
-        status: 500,
-      });
+      next(error);
     }
   }
 );
@@ -56,7 +50,7 @@ usersReqRouter.get(
   "/usersConnections",
   userAuth,
   paginationMiddleware,
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const loggedInUserId = req.user._id;
       const { page, limit, skip } = req.pagination;
@@ -89,12 +83,7 @@ usersReqRouter.get(
         pagination: { total: totalConnections, page, limit },
       });
     } catch (error) {
-      console.error("Error in /usersConnections:", error);
-      sendResponse(res, {
-        success: false,
-        message: "An unexpected error occurred while retrieving connections",
-        status: 500,
-      });
+      next(error);
     }
   }
 );
@@ -104,7 +93,7 @@ usersReqRouter.get(
   "/usersFeed",
   userAuth,
   paginationMiddleware,
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const loggedInUserId = req.user._id;
       const { page, limit, skip } = req.pagination;
@@ -149,12 +138,7 @@ usersReqRouter.get(
         pagination: { total: totalFeedUsers, page, limit },
       });
     } catch (error) {
-      console.error("Error in /usersFeed:", error);
-      sendResponse(res, {
-        success: false,
-        message: "An unexpected error occurred while retrieving user feed",
-        status: 500,
-      });
+      next(error);
     }
   }
 );
