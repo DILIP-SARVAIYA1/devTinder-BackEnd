@@ -4,30 +4,103 @@ const User = require("../models/User");
 const { userAuth } = require("../middlewares/userAuth");
 const validator = require("validator");
 const validateObjectId = require("../middlewares/validateObjectId");
+const ConnectionRequest = require("../models/ConnectionRequest");
+const sendResponse = require("../helpers/response");
 
 profileRoutes.get("/profile/view", userAuth, async (req, res) => {
   try {
-    const { firstName, lastName, email, profilePic, about, skills } = req.user;
-    res.status(200).json({
+    if (!req.user) {
+      return sendResponse(res, {
+        success: false,
+        message: "User not authenticated",
+        status: 401,
+      });
+    }
+    const {
+      _id,
+      firstName,
+      lastName,
+      email,
+      profilePic,
+      about,
+      skills,
+      gender,
+      age,
+    } = req.user;
+    sendResponse(res, {
       success: true,
-      data: { firstName, lastName, email, profilePic, about, skills },
+      data: {
+        _id,
+        firstName,
+        lastName,
+        email,
+        profilePic,
+        about,
+        skills,
+        gender,
+        age,
+      },
     });
   } catch (error) {
     console.error("Error in /profile/view:", error);
-    res.status(500).json({ success: false, message: error.message });
+    sendResponse(res, {
+      success: false,
+      message: "Failed to fetch profile. Please try again later.",
+      status: 500,
+    });
   }
 });
 
-profileRoutes.get("/feed", async (req, res) => {
+profileRoutes.get("/feed", userAuth, async (req, res) => {
   try {
-    const users = await User.find({});
-    res.status(200).json({
+    const loggedInUserId = req.user._id;
+    // Find all users who are already connected or have a pending/accepted connection with the logged-in user
+    const connections = await ConnectionRequest.find({
+      $or: [{ fromUserId: loggedInUserId }, { toUserId: loggedInUserId }],
+      status: { $in: ["accepted", "interested"] },
+    }).select("fromUserId toUserId");
+
+    // Collect all user IDs to exclude (already connected or requested)
+    const excludeUserIds = new Set([loggedInUserId.toString()]);
+    for (const conn of connections) {
+      excludeUserIds.add(conn.fromUserId.toString());
+      excludeUserIds.add(conn.toUserId.toString());
+    }
+
+    // Pagination
+    const page = Number.parseInt(req.query.page, 10) || 1;
+    const limit = Number.parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
+    // Find users not in the exclude list
+    const [feedUsers, total] = await Promise.all([
+      User.find({ _id: { $nin: Array.from(excludeUserIds) } })
+        .select(
+          "firstName lastName profilePic skills gender age about createdAt"
+        )
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      User.countDocuments({ _id: { $nin: Array.from(excludeUserIds) } }),
+    ]);
+
+    sendResponse(res, {
       success: true,
-      data: users,
+      data: feedUsers,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
-    console.error("Error in /feed:", error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Error in GET /feed:", error);
+    sendResponse(res, {
+      success: false,
+      message: "Failed to fetch user feed. Please try again later.",
+      status: 500,
+    });
   }
 });
 
@@ -35,25 +108,31 @@ profileRoutes.delete("/profile/delete/:id", async (req, res) => {
   try {
     const id = req.params.id;
     if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({
+      return sendResponse(res, {
         success: false,
         message: "Invalid user ID format",
+        status: 400,
       });
     }
     const user = await User.findByIdAndDelete(id);
     if (!user) {
-      return res.status(404).json({
+      return sendResponse(res, {
         success: false,
         message: "User not found",
+        status: 404,
       });
     }
-    res.status(200).json({
+    sendResponse(res, {
       success: true,
       message: "User deleted successfully",
     });
   } catch (error) {
     console.error("Error in /profile/delete/:id:", error);
-    res.status(500).json({ success: false, message: error.message });
+    sendResponse(res, {
+      success: false,
+      message: error.message,
+      status: 500,
+    });
   }
 });
 
@@ -75,17 +154,19 @@ profileRoutes.patch(
 
       // Validate user ID
       if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-        return res.status(400).json({
+        return sendResponse(res, {
           success: false,
           message: "Invalid user ID format",
+          status: 400,
         });
       }
 
       // Check for empty request body
       if (!Object.keys(data).length) {
-        return res.status(400).json({
+        return sendResponse(res, {
           success: false,
           message: "Request body cannot be empty",
+          status: 400,
         });
       }
 
@@ -94,10 +175,11 @@ profileRoutes.patch(
         ALLOWED_UPDATES.includes(key)
       );
       if (!isValidOperation) {
-        return res.status(400).json({
+        return sendResponse(res, {
           success: false,
           message:
             "Invalid updates! Allowed fields: firstName, lastName, password, profilePic, about, skills",
+          status: 400,
         });
       }
 
@@ -106,9 +188,10 @@ profileRoutes.patch(
         data.skills &&
         (!Array.isArray(data.skills) || data.skills.length > 5)
       ) {
-        return res.status(400).json({
+        return sendResponse(res, {
           success: false,
           message: "Skills must be an array with a maximum of 5 items",
+          status: 400,
         });
       }
 
@@ -116,9 +199,10 @@ profileRoutes.patch(
       if (data.password) {
         const validator = require("validator");
         if (!validator.isStrongPassword(data.password)) {
-          return res.status(400).json({
+          return sendResponse(res, {
             success: false,
             message: "Password is not strong enough",
+            status: 400,
           });
         }
         data.password = await bcrypt.hash(data.password, 10);
@@ -126,9 +210,10 @@ profileRoutes.patch(
 
       // Ensure user can only update their own profile
       if (req.user._id.toString() !== req.params.id) {
-        return res.status(403).json({
+        return sendResponse(res, {
           success: false,
           message: "You are not authorized to update this profile",
+          status: 403,
         });
       }
 
@@ -139,22 +224,24 @@ profileRoutes.patch(
       }).select("-password");
 
       if (!user) {
-        return res.status(404).json({
+        return sendResponse(res, {
           success: false,
           message: "User not found",
+          status: 404,
         });
       }
 
-      res.status(200).json({
+      sendResponse(res, {
         success: true,
         message: "Profile updated successfully",
         data: user,
       });
     } catch (error) {
       console.error("Error in /profile/update/:id:", error);
-      res.status(500).json({
+      sendResponse(res, {
         success: false,
         message: "An unexpected error occurred while updating the profile",
+        status: 500,
       });
     }
   }

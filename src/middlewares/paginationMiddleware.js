@@ -1,15 +1,23 @@
+const sendResponse = require("../helpers/response");
+
 // Pagination middleware
 const paginationMiddleware = (req, res, next) => {
   const MAX_LIMIT = 50;
 
   // Parse and validate page and limit
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
+  const page = Number.parseInt(req.query.page, 10) || 1;
+  const limit = Number.parseInt(req.query.limit, 10) || 10;
 
-  if (isNaN(page) || isNaN(limit) || page <= 0 || limit <= 0) {
-    return res.status(400).json({
+  if (
+    !Number.isInteger(page) ||
+    !Number.isInteger(limit) ||
+    page <= 0 ||
+    limit <= 0
+  ) {
+    return sendResponse(res, {
       success: false,
       message: "Page and limit must be positive integers",
+      status: 400,
     });
   }
 

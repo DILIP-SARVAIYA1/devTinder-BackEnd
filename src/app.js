@@ -8,16 +8,29 @@ const connectionReqRoutes = require("./routes/connectionReqRoutes");
 const usersReqRoutes = require("./routes/usersReqRoutes");
 const cors = require("cors");
 
+// CORS configuration
 app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
+// API routes
 app.use("/", profileRoutes);
 app.use("/", authRoutes);
 app.use("/", connectionReqRoutes);
 app.use("/", usersReqRoutes);
 
-const PORT = 1111;
+// 404 handler for unknown routes
+app.use((req, res, next) => {
+  res.status(404).json({ success: false, message: "Route not found" });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ success: false, message: "Internal server error" });
+});
+
+const PORT = process.env.PORT || 1111;
 
 const connectWithRetry = async () => {
   try {

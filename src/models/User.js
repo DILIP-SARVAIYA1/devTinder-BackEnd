@@ -122,8 +122,11 @@ userSchema.virtual("fullName").get(function () {
 
 userSchema.pre("save", async function (next) {
   if (this.isModified("password")) {
-    const bcrypt = require("bcrypt");
-    this.password = await bcrypt.hash(this.password, 10);
+    // Only hash if not already hashed (avoid double hashing)
+    if (!/^\$2[aby]\$\d{2}\$/.test(this.password)) {
+      const bcrypt = require("bcrypt");
+      this.password = await bcrypt.hash(this.password, 10);
+    }
   }
   next();
 });
@@ -131,6 +134,7 @@ userSchema.pre("save", async function (next) {
 userSchema.methods.toJSON = function () {
   const user = this.toObject();
   delete user.password;
+  delete user.__v;
   return user;
 };
 

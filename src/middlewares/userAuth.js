@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const sendResponse = require("../helpers/response");
 
 const userAuth = async (req, res, next) => {
   try {
@@ -7,9 +8,10 @@ const userAuth = async (req, res, next) => {
     const token =
       req.cookies?.token || req.headers.authorization?.split(" ")[1];
     if (!token) {
-      return res.status(401).json({
+      return sendResponse(res, {
         success: false,
         message: "Unauthorized access, please log in!",
+        status: 401,
       });
     }
 
@@ -19,9 +21,10 @@ const userAuth = async (req, res, next) => {
     // Find the user and exclude the password field
     const user = await User.findById(decoded._id).select("-password");
     if (!user) {
-      return res.status(401).json({
+      return sendResponse(res, {
         success: false,
         message: "User not found, please log in again!",
+        status: 401,
       });
     }
 
@@ -31,21 +34,27 @@ const userAuth = async (req, res, next) => {
   } catch (error) {
     // Handle specific JWT errors
     if (error.name === "TokenExpiredError") {
-      return res.status(401).json({
+      return sendResponse(res, {
         success: false,
         message: "Token has expired, please log in again",
+        status: 401,
       });
     }
     if (error.name === "JsonWebTokenError") {
-      return res.status(401).json({
+      return sendResponse(res, {
         success: false,
         message: "Invalid token, please log in again",
+        status: 401,
       });
     }
 
     // Log and handle unexpected errors
     console.error("Error in userAuth middleware:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    sendResponse(res, {
+      success: false,
+      message: "Internal server error",
+      status: 500,
+    });
   }
 };
 

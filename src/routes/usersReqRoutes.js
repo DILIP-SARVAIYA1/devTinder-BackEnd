@@ -4,6 +4,7 @@ const ConnectionRequest = require("../models/ConnectionRequest");
 const { userAuth } = require("../middlewares/userAuth");
 const paginationMiddleware = require("../middlewares/paginationMiddleware");
 const User = require("../models/User");
+const sendResponse = require("../helpers/response");
 
 // Get received connection requests
 usersReqRouter.get(
@@ -30,25 +31,21 @@ usersReqRouter.get(
         status: "interested",
       });
 
-      res.status(200).json({
+      sendResponse(res, {
         success: true,
         message: usersRequests.length
           ? "Connection requests retrieved successfully"
           : "No connection requests available",
         data: usersRequests,
-        total: totalRequests,
-        page,
-        limit,
+        pagination: { total: totalRequests, page, limit },
       });
     } catch (error) {
-      console.error("Error in /usersRequest/received:", {
-        error: error.message,
-        stack: error.stack,
-      });
-      res.status(500).json({
+      console.error("Error in /usersRequest/received:", error);
+      sendResponse(res, {
         success: false,
         message:
           "An unexpected error occurred while retrieving connection requests",
+        status: 500,
       });
     }
   }
@@ -83,24 +80,20 @@ usersReqRouter.get(
         ],
       });
 
-      res.status(200).json({
+      sendResponse(res, {
         success: true,
         message: usersConnections.length
           ? "Connections retrieved successfully"
           : "No connections available",
         data: usersConnections,
-        total: totalConnections,
-        page,
-        limit,
+        pagination: { total: totalConnections, page, limit },
       });
     } catch (error) {
-      console.error("Error in /usersConnections:", {
-        error: error.message,
-        stack: error.stack,
-      });
-      res.status(500).json({
+      console.error("Error in /usersConnections:", error);
+      sendResponse(res, {
         success: false,
         message: "An unexpected error occurred while retrieving connections",
+        status: 500,
       });
     }
   }
@@ -114,6 +107,7 @@ usersReqRouter.get(
   async (req, res) => {
     try {
       const loggedInUserId = req.user._id;
+      const { page, limit, skip } = req.pagination;
 
       // Fetch connected user IDs
       const connectedUserIds = new Set([
@@ -140,32 +134,26 @@ usersReqRouter.get(
       const usersFeed = await User.find(usersFilter)
         .select("firstName lastName profilePic skills aboutMe")
         .sort({ createdAt: -1 })
-        .skip(req.pagination.skip)
-        .limit(req.pagination.limit);
+        .skip(skip)
+        .limit(limit);
 
       // Total count of users in the feed
-      const totalFeedUsers = await User.countDocuments({
-        _id: { $nin: Array.from(connectedUserIds) },
-      });
+      const totalFeedUsers = await User.countDocuments(usersFilter);
 
-      res.status(200).json({
+      sendResponse(res, {
         success: true,
         message: usersFeed.length
           ? "User feed retrieved successfully"
           : "No users available in the feed",
         data: usersFeed,
-        total: totalFeedUsers,
-        page,
-        limit,
+        pagination: { total: totalFeedUsers, page, limit },
       });
     } catch (error) {
-      console.error("Error in /usersFeed:", {
-        error: error.message,
-        stack: error.stack,
-      });
-      res.status(500).json({
+      console.error("Error in /usersFeed:", error);
+      sendResponse(res, {
         success: false,
         message: "An unexpected error occurred while retrieving user feed",
+        status: 500,
       });
     }
   }

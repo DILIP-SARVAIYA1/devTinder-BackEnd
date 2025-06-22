@@ -4,45 +4,65 @@ const { validateSignUpData } = require("../helpers/validation");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const sendResponse = require("../helpers/response");
 
+// Signup
 authRoutes.post("/signup", async (req, res) => {
   try {
     validateSignUpData(req);
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
-    const user = new User(req.body);
-
-    user.password = hashedPassword;
+    const user = new User({ ...req.body, password: hashedPassword });
     await user.save();
-    res.status(201).json({ success: true, message: "User created" });
+    const userData = user.toObject();
+    delete userData.password;
+    sendResponse(res, {
+      success: true,
+      message: "User created",
+      data: userData,
+      status: 201,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    sendResponse(res, {
+      success: false,
+      message: error.message,
+      status: 500,
+    });
   }
 });
 
+// Login
 authRoutes.post("/login", async (req, res) => {
   try {
     const user = await User.findOne({ email: req.body.email });
     if (!user) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid email or password" });
+      return sendResponse(res, {
+        success: false,
+        message: "Invalid email or password",
+        status: 401,
+      });
     }
     const isMatch = await bcrypt.compare(req.body.password, user.password);
     if (!isMatch) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid email or password" });
+      return sendResponse(res, {
+        success: false,
+        message: "Invalid email or password",
+        status: 401,
+      });
     }
-    const token = jwt.sign({ _id: user._id }, "devTinder", { expiresIn: "7d" });
+    const token = jwt.sign(
+      { _id: user._id },
+      process.env.JWT_SECRET || "devTinder",
+      { expiresIn: "7d" }
+    );
     res.cookie("token", token, {
       httpOnly: true,
-      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       sameSite: "strict",
     });
-    res.status(200).json({
+    sendResponse(res, {
       success: true,
       message: `${user.firstName} ${user.lastName} logged in`,
-      userData: {
+      data: {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
@@ -52,13 +72,21 @@ authRoutes.post("/login", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    sendResponse(res, {
+      success: false,
+      message: error.message,
+      status: 500,
+    });
   }
 });
 
+// Logout
 authRoutes.get("/logout", (req, res) => {
   res.clearCookie("token");
-  res.status(200).json({ success: true, message: "User logged out" });
+  sendResponse(res, {
+    success: true,
+    message: "User logged out",
+  });
 });
 
 module.exports = authRoutes;
