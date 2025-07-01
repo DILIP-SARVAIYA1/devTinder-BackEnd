@@ -7,100 +7,25 @@ const validateObjectId = require("../middlewares/validateObjectId");
 const ConnectionRequest = require("../models/ConnectionRequest");
 const sendResponse = require("../helpers/response");
 
-profileRoutes.get("/profile/view", userAuth, async (req, res) => {
+profileRoutes.get("/profile/view", userAuth, async (req, res, next) => {
   try {
-    if (!req.user) {
+    // Retrieve the latest user data from the database
+    const user = await User.findById(req.user._id).select(
+      "_id firstName lastName email profilePic about skills gender age createdAt updatedAt"
+    );
+    if (!user) {
       return sendResponse(res, {
         success: false,
-        message: "User not authenticated",
-        status: 401,
+        message: "User not found",
+        status: 404,
       });
     }
-    const {
-      _id,
-      firstName,
-      lastName,
-      email,
-      profilePic,
-      about,
-      skills,
-      gender,
-      age,
-    } = req.user;
     sendResponse(res, {
       success: true,
-      data: {
-        _id,
-        firstName,
-        lastName,
-        email,
-        profilePic,
-        about,
-        skills,
-        gender,
-        age,
-      },
+      data: user,
     });
   } catch (error) {
-    console.error("Error in /profile/view:", error);
-    sendResponse(res, {
-      success: false,
-      message: "Failed to fetch profile. Please try again later.",
-      status: 500,
-    });
-  }
-});
-
-profileRoutes.get("/feed", userAuth, async (req, res) => {
-  try {
-    const loggedInUserId = req.user._id;
-    // Find all users who are already connected or have a pending/accepted connection with the logged-in user
-    const connections = await ConnectionRequest.find({
-      $or: [{ fromUserId: loggedInUserId }, { toUserId: loggedInUserId }],
-      status: { $in: ["accepted", "interested"] },
-    }).select("fromUserId toUserId");
-
-    // Collect all user IDs to exclude (already connected or requested)
-    const excludeUserIds = new Set([loggedInUserId.toString()]);
-    for (const conn of connections) {
-      excludeUserIds.add(conn.fromUserId.toString());
-      excludeUserIds.add(conn.toUserId.toString());
-    }
-
-    // Pagination
-    const page = Number.parseInt(req.query.page, 10) || 1;
-    const limit = Number.parseInt(req.query.limit, 10) || 10;
-    const skip = (page - 1) * limit;
-
-    // Find users not in the exclude list
-    const [feedUsers, total] = await Promise.all([
-      User.find({ _id: { $nin: Array.from(excludeUserIds) } })
-        .select(
-          "firstName lastName profilePic skills gender age about createdAt"
-        )
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      User.countDocuments({ _id: { $nin: Array.from(excludeUserIds) } }),
-    ]);
-
-    sendResponse(res, {
-      success: true,
-      data: feedUsers,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    console.error("Error in GET /feed:", error);
-    sendResponse(res, {
-      success: false,
-      message: "Failed to fetch user feed. Please try again later.",
-      status: 500,
-    });
+    next(error);
   }
 });
 

@@ -87,7 +87,44 @@ usersReqRouter.get(
     }
   }
 );
+// Get sent likes
+usersReqRouter.get(
+  "/usersSentLikes",
+  userAuth,
+  paginationMiddleware,
+  async (req, res, next) => {
+    try {
+      const loggedInUserId = req.user._id;
+      const { page, limit, skip } = req.pagination;
 
+      // Fetch sent likes
+      const usersSentLikes = await ConnectionRequest.find({
+        fromUserId: loggedInUserId,
+        status: "interested",
+      })
+        .populate("toUserId", "firstName lastName profilePic skills")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      const totalSentLikes = await ConnectionRequest.countDocuments({
+        fromUserId: loggedInUserId,
+        status: "interested",
+      });
+
+      sendResponse(res, {
+        success: true,
+        message: usersSentLikes.length
+          ? "Sent likes retrieved successfully"
+          : "No sent likes available",
+        data: usersSentLikes,
+        pagination: { total: totalSentLikes, page, limit },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 // Get user feed
 usersReqRouter.get(
   "/usersFeed",
@@ -121,7 +158,7 @@ usersReqRouter.get(
 
       // Fetch users for the feed
       const usersFeed = await User.find(usersFilter)
-        .select("firstName lastName profilePic skills aboutMe")
+        .select("_id firstName lastName profilePic skills aboutMe age gender")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
