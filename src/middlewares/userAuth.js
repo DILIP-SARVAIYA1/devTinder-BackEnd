@@ -16,7 +16,7 @@ const userAuth = async (req, res, next) => {
     }
 
     // Verify the token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "devTinder");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Find the user and exclude the password field
     const user = await User.findById(decoded._id).select("-password");

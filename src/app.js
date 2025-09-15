@@ -7,6 +7,7 @@ const authRoutes = require("./routes/authRoutes");
 const connectionReqRoutes = require("./routes/connectionReqRoutes");
 const usersReqRoutes = require("./routes/usersReqRoutes");
 const cors = require("cors");
+require("dotenv").config();
 
 // CORS configuration
 app.use(cors({ origin: "http://localhost:5173", credentials: true }));
@@ -27,7 +28,7 @@ app.use((req, res, next) => {
 // Global error handler
 app.use(require("./helpers/errorHandler"));
 
-const PORT = process.env.PORT || 1111;
+const PORT = process.env.PORT;
 
 const connectWithRetry = async () => {
   try {
